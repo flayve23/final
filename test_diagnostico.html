@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 FLAYVE - Teste de Comunicação Frontend/Backend</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .test-result {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { color: #22c55e; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .warning { color: #f59e0b; font-weight: bold; }
+        .info { color: #3b82f6; font-weight: bold; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-ok { background: #dcfce7; color: #166534; }
+        .status-fail { background: #fee2e2; color: #991b1b; }
+        .url-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+        }
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 FLAYVE V104 - Teste de Comunicação</h1>
+        <p class="subtitle">Diagnóstico completo de Frontend ↔ Backend</p>
+
+        <!-- Configuração -->
+        <div class="test-section">
+            <h2>⚙️ Configuração</h2>
+            <label for="apiUrl" style="display: block; margin-bottom: 8px; font-weight: 600;">URL da API:</label>
+            <input 
+                type="text" 
+                id="apiUrl" 
+                class="url-input" 
+                value="https://flayve.pages.dev"
+                placeholder="https://seu-site.pages.dev"
+            >
+            <button onclick="saveConfig()">💾 Salvar Configuração</button>
+        </div>
+
+        <!-- Teste 1: Health Check -->
+        <div class="test-section">
+            <h2>1️⃣ Health Check (Backend Funcionando?)</h2>
+            <button onclick="testHealth()">▶️ Testar Health</button>
+            <div id="healthResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Teste 2: CORS -->
+        <div class="test-section">
+            <h2>2️⃣ CORS (Comunicação Permitida?)</h2>
+            <button onclick="testCORS()">▶️ Testar CORS</button>
+            <div id="corsResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Teste 3: Storage Upload -->
+        <div class="test-section">
+            <h2>3️⃣ Upload de Foto (R2 Bucket)</h2>
+            <input type="file" id="fileInput" accept="image/*" style="margin-bottom: 10px;">
+            <button onclick="testUpload()">▶️ Testar Upload</button>
+            <div id="uploadResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Teste 4: Database -->
+        <div class="test-section">
+            <h2>4️⃣ Database (D1)</h2>
+            <button onclick="testDatabase()">▶️ Testar Database</button>
+            <div id="dbResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Teste 5: Auth -->
+        <div class="test-section">
+            <h2>5️⃣ Autenticação (JWT)</h2>
+            <input type="email" id="testEmail" placeholder="Email de teste" style="width: 48%; margin-right: 2%;">
+            <input type="password" id="testPassword" placeholder="Senha" style="width: 48%;">
+            <br><br>
+            <button onclick="testLogin()">▶️ Testar Login</button>
+            <div id="authResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Teste 6: Mercado Pago -->
+        <div class="test-section">
+            <h2>6️⃣ Mercado Pago (Carregar Saldo)</h2>
+            <button onclick="testMercadoPago()">▶️ Testar Recarga</button>
+            <div id="mpResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Resumo -->
+        <div class="test-section">
+            <h2>📊 Resumo do Diagnóstico</h2>
+            <div id="summary" class="test-result"></div>
+        </div>
+    </div>
+
+    <script>
+        let API_URL = 'https://flayve.pages.dev';
+        let authToken = null;
+
+        function saveConfig() {
+            API_URL = document.getElementById('apiUrl').value.replace(/\/$/, '');
+            localStorage.setItem('flayve_api_url', API_URL);
+            alert('✅ Configuração salva! URL: ' + API_URL);
+        }
+
+        function log(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
+            el.innerHTML += `<span class="${color}">[${timestamp}]</span> ${message}\n`;
+            el.scrollTop = el.scrollHeight;
+        }
+
+        async function testHealth() {
+            const resultEl = document.getElementById('healthResult');
+            resultEl.innerHTML = '';
+            log('healthResult', '🔄 Testando /api/health...', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('healthResult', '✅ Backend está FUNCIONANDO!', 'success');
+                    log('healthResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    log('healthResult', `❌ Erro: ${response.status} - ${response.statusText}`, 'error');
+                    log('healthResult', JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                log('healthResult', `❌ ERRO DE CONEXÃO: ${error.message}`, 'error');
+                log('healthResult', 'Possíveis causas:\n- Site não está no ar\n- URL incorreta\n- Problema de CORS', 'warning');
+            }
+        }
+
+        async function testCORS() {
+            const resultEl = document.getElementById('corsResult');
+            resultEl.innerHTML = '';
+            log('corsResult', '🔄 Testando CORS...', 'info');
+            log('corsResult', `Origin atual: ${window.location.origin}`, 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log('corsResult', '✅ CORS está OK!', 'success');
+                    log('corsResult', 'Headers da resposta:', 'info');
+                    response.headers.forEach((value, key) => {
+                        if (key.toLowerCase().includes('cors') || key.toLowerCase().includes('access-control')) {
+                            log('corsResult', `${key}: ${value}`, 'info');
+                        }
+                    });
+                } else {
+                    log('corsResult', `⚠️ Resposta: ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                log('corsResult', `❌ ERRO DE CORS!`, 'error');
+                log('corsResult', error.message, 'error');
+                log('corsResult', '\n🔧 SOLUÇÃO:', 'warning');
+                log('corsResult', '1. Adicione seu domínio na whitelist do backend', 'warning');
+                log('corsResult', '2. Ou mude CORS para permitir todos (*)', 'warning');
+            }
+        }
+
+        async function testUpload() {
+            const resultEl = document.getElementById('uploadResult');
+            resultEl.innerHTML = '';
+            const fileInput = document.getElementById('fileInput');
+
+            if (!fileInput.files.length) {
+                log('uploadResult', '⚠️ Selecione uma imagem primeiro!', 'warning');
+                return;
+            }
+
+            if (!authToken) {
+                log('uploadResult', '⚠️ Faça login primeiro (Teste 5)!', 'warning');
+                return;
+            }
+
+            log('uploadResult', '🔄 Convertendo imagem para Base64...', 'info');
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onloadend = async function() {
+                const base64 = reader.result;
+                log('uploadResult', '✅ Imagem convertida!', 'success');
+                log('uploadResult', `Tamanho: ${(file.size / 1024).toFixed(2)} KB`, 'info');
+                log('uploadResult', '🔄 Enviando para /api/storage/upload-base64...', 'info');
+
+                try {
+                    const response = await fetch(`${API_URL}/api/storage/upload-base64`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            image: base64,
+                            folder: 'avatars'
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        log('uploadResult', '✅ UPLOAD FUNCIONOU!', 'success');
+                        log('uploadResult', JSON.stringify(data, null, 2), 'success');
+                    } else {
+                        log('uploadResult', `❌ Erro: ${response.status}`, 'error');
+                        log('uploadResult', JSON.stringify(data, null, 2), 'error');
+                    }
+                } catch (error) {
+                    log('uploadResult', `❌ ERRO: ${error.message}`, 'error');
+                }
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        async function testDatabase() {
+            const resultEl = document.getElementById('dbResult');
+            resultEl.innerHTML = '';
+
+            if (!authToken) {
+                log('dbResult', '⚠️ Faça login primeiro (Teste 5)!', 'warning');
+                return;
+            }
+
+            log('dbResult', '🔄 Testando acesso ao D1 Database...', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/profiles/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    log('dbResult', '✅ DATABASE ESTÁ FUNCIONANDO!', 'success');
+                    log('dbResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    log('dbResult', `❌ Erro: ${response.status}`, 'error');
+                    log('dbResult', JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                log('dbResult', `❌ ERRO: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            const resultEl = document.getElementById('authResult');
+            resultEl.innerHTML = '';
+
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+
+            if (!email || !password) {
+                log('authResult', '⚠️ Preencha email e senha!', 'warning');
+                return;
+            }
+
+            log('authResult', '🔄 Tentando fazer login...', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                    log('authResult', '✅ LOGIN FUNCIONOU!', 'success');
+                    log('authResult', `Token JWT gerado: ${authToken.substring(0, 50)}...`, 'success');
+                    log('authResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    log('authResult', `❌ Falha no login: ${response.status}`, 'error');
+                    log('authResult', JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                log('authResult', `❌ ERRO: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMercadoPago() {
+            const resultEl = document.getElementById('mpResult');
+            resultEl.innerHTML = '';
+
+            if (!authToken) {
+                log('mpResult', '⚠️ Faça login primeiro (Teste 5)!', 'warning');
+                return;
+            }
+
+            log('mpResult', '🔄 Testando recarga com Mercado Pago...', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/wallet/recharge`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        amount: 10,
+                        method: 'pix'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    log('mpResult', '✅ MERCADO PAGO ESTÁ FUNCIONANDO!', 'success');
+                    log('mpResult', 'QR Code gerado com sucesso!', 'success');
+                    log('mpResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    log('mpResult', `❌ Erro: ${response.status}`, 'error');
+                    log('mpResult', JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                log('mpResult', `❌ ERRO: ${error.message}`, 'error');
+            }
+        }
+
+        // Carregar URL salva
+        window.onload = function() {
+            const saved = localStorage.getItem('flayve_api_url');
+            if (saved) {
+                API_URL = saved;
+                document.getElementById('apiUrl').value = saved;
+            }
+            document.getElementById('summary').innerHTML = '⏳ Execute os testes acima para ver o resumo...';
+        };
+    </script>
+</body>
+</html>
