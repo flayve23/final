@@ -16,15 +16,15 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
     try {
       const { data } = await api.post('/wallet/recharge', { 
         amount: value,
-        method: 'pix' // We send as PIX to MP to get the QR Code/Ticket
+        method: 'pix' // Sempre PIX para obter QR Code
       });
 
       if (data.qr_code_base64) {
-          // Real MP Transaction
+          // Mercado Pago retornou QR Code
           setPaymentData(data);
           setStep('payment');
       } else {
-          // Simulator
+          // Simulador
           alert('Recarga simulada realizada com sucesso!');
           onSuccess();
           onClose();
@@ -39,6 +39,15 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
   const copyPix = () => {
       navigator.clipboard.writeText(paymentData.qr_code);
       alert('Código PIX copiado!');
+  }
+
+  // RC1-FIX: Abrir Mercado Pago em nova aba para cartão
+  const openMercadoPago = () => {
+      if (paymentData.payment_url) {
+          window.open(paymentData.payment_url, '_blank');
+      } else {
+          alert('Link de pagamento não disponível. Use o QR Code PIX.');
+      }
   }
 
   return (
@@ -96,11 +105,10 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
             </div>
         )}
 
-        {/* STEP 2: Payment Display (The "In-Site" Experience) */}
+        {/* STEP 2: Payment Display */}
         {step === 'payment' && paymentData && (
             <div className="p-6 flex flex-col items-center text-center space-y-6">
                 <div className="bg-white p-4 rounded-xl shadow-lg">
-                    {/* Render Base64 QR Code */}
                     <img 
                         src={`data:image/png;base64,${paymentData.qr_code_base64}`} 
                         alt="QR Code Pix" 
@@ -109,7 +117,7 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
                 </div>
                 
                 <div className="w-full">
-                    <p className="text-gray-400 text-sm mb-2">Ou copie e cole o código abaixo:</p>
+                    <p className="text-gray-400 text-sm mb-2">Ou copie e cole o código:</p>
                     <div className="flex gap-2">
                         <input 
                             readOnly 
@@ -122,16 +130,15 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
                     </div>
                 </div>
 
+                {/* RC1-FIX: Cartão abre Mercado Pago em nova aba */}
                 <div className="w-full border-t border-dark-700 pt-4">
-                    <a 
-                        href={paymentData.payment_url} 
-                        target="_blank" 
-                        rel="noreferrer"
+                    <button 
+                        onClick={openMercadoPago}
                         className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl"
                     >
-                        <CreditCard className="w-4 h-4" /> Pagar com Cartão (Seguro)
-                    </a>
-                    <p className="text-xs text-gray-500 mt-2">Abre em nova janela segura do Mercado Pago.</p>
+                        <CreditCard className="w-4 h-4" /> Pagar com Cartão
+                    </button>
+                    <p className="text-xs text-gray-500 mt-2">Abre em nova aba segura do Mercado Pago.</p>
                 </div>
 
                 <button onClick={onClose} className="text-gray-400 hover:text-white text-sm">

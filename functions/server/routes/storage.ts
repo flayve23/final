@@ -12,14 +12,13 @@ storage.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader) return c.json({ error: 'Unauthorized' }, 401)
   const token = authHeader.split(' ')[1]
-  // V104: Verificação segura
   const payload = await verifySessionToken(token, c.env.JWT_SECRET)
   if (!payload) return c.json({ error: 'Invalid or expired token' }, 403)
   c.set('user', payload)
   await next()
 })
 
-// V104: Upload com validações de segurança
+// RC1-FIX: Upload Base64 (usado pelo perfil)
 storage.post('/upload-base64', async (c) => {
   const user = c.get('user') as any
   
@@ -34,7 +33,7 @@ storage.post('/upload-base64', async (c) => {
       return c.json({ error: 'R2 Bucket not configured' }, 500)
     }
 
-    // V104: Validação 1 - Verificar formato do data URL
+    // Validação do formato
     const mimeMatch = image.match(/^data:(image\/(png|jpeg|jpg|webp|gif));base64,/)
     if (!mimeMatch) {
       return c.json({ 
@@ -46,13 +45,13 @@ storage.post('/upload-base64', async (c) => {
     const mimeType = mimeMatch[1]
     const extension = mimeMatch[2]
 
-    // V104: Validação 2 - Tamanho máximo (5MB)
+    // Validação de tamanho
     const base64Data = image.split(',')[1]
     if (!base64Data) {
       return c.json({ error: 'Dados de imagem inválidos' }, 400)
     }
 
-    const sizeInBytes = (base64Data.length * 3) / 4 // Aproximação do tamanho real
+    const sizeInBytes = (base64Data.length * 3) / 4
     const maxSize = 5 * 1024 * 1024 // 5MB
     
     if (sizeInBytes > maxSize) {
@@ -63,7 +62,7 @@ storage.post('/upload-base64', async (c) => {
       }, 413)
     }
 
-    // V104: Validação 3 - Folder permitido
+    // Validação de pasta
     const allowedFolders = ['avatars', 'stories', 'documents']
     if (!allowedFolders.includes(folder)) {
       return c.json({ 
@@ -72,13 +71,10 @@ storage.post('/upload-base64', async (c) => {
       }, 400)
     }
 
-    // Decode Base64
+    // Decode e upload
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
-    
-    // Gerar nome único
     const key = `${folder}/${user.sub}_${Date.now()}.${extension}`
 
-    // Upload para R2
     await c.env.BUCKET.put(key, binaryData, {
       httpMetadata: { contentType: mimeType }
     })
@@ -98,6 +94,67 @@ storage.post('/upload-base64', async (c) => {
   }
 })
 
+// RC1-FIX: Upload de Stories via FormData (usado pelo StreamerDashboard)
+storage.post('/upload/stories', async (c) => {
+  const user = c.get('user') as any
+  
+  try {
+    if (!c.env.BUCKET) {
+      return c.json({ error: 'R2 Bucket not configured' }, 500)
+    }
+
+    // Parse FormData
+    const formData = await c.req.formData()
+    const file = formData.get('file') as File
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400)
+    }
+
+    // Validar tipo
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ 
+        error: 'Tipo de arquivo inválido',
+        allowed: allowedTypes
+      }, 400)
+    }
+
+    // Validar tamanho (max 10MB para stories)
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      return c.json({ 
+        error: 'Arquivo muito grande',
+        max_size: '10MB',
+        your_size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+      }, 413)
+    }
+
+    // Gerar nome único
+    const extension = file.name.split('.').pop() || 'jpg'
+    const key = `stories/${user.sub}_${Date.now()}.${extension}`
+
+    // Upload para R2
+    const arrayBuffer = await file.arrayBuffer()
+    await c.env.BUCKET.put(key, arrayBuffer, {
+      httpMetadata: { contentType: file.type }
+    })
+
+    console.log(`✅ Story Upload: ${key} (${(file.size / 1024).toFixed(2)}KB) por user ${user.sub}`)
+
+    return c.json({ 
+      success: true, 
+      url: `/api/storage/file/${key}`,
+      size: file.size,
+      type: file.type
+    })
+    
+  } catch (e: any) {
+    console.error('❌ Story upload error:', e)
+    return c.json({ error: `Upload failed: ${e.message}` }, 500)
+  }
+})
+
 // Servir arquivos
 storage.get('/file/:folder/:filename', async (c) => {
   if (!c.env.BUCKET) return c.json({ error: 'Storage not configured' }, 500)
@@ -110,7 +167,7 @@ storage.get('/file/:folder/:filename', async (c) => {
   const headers = new Headers()
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
-  headers.set('cache-control', 'public, max-age=31536000') // 1 ano
+  headers.set('cache-control', 'public, max-age=31536000')
   
   return new Response(object.body, { headers })
 })

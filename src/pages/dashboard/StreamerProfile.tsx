@@ -48,8 +48,9 @@ export default function StreamerProfile() {
     reader.readAsDataURL(file);
   };
 
+  // RC1-FIX: Usar username em vez de user_id na URL
   const copyLink = () => {
-    const link = `${window.location.origin}/p/${profile.user_id}`;
+    const link = `${window.location.origin}/p/${profile.username}`;
     navigator.clipboard.writeText(link);
     alert('Link copiado!');
   };

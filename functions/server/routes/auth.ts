@@ -8,10 +8,9 @@ type Bindings = {
 
 const auth = new Hono<{ Bindings: Bindings }>()
 
-// Signup
+// RC1-FIX: Signup com melhor tratamento de erros
 auth.post('/signup', async (c) => {
   try {
-    // 1. Check ENV
     if (!c.env.DB) return c.json({ error: 'CONFIG ERROR: DB binding is missing.' }, 500)
     if (!c.env.JWT_SECRET) return c.json({ error: 'CONFIG ERROR: JWT_SECRET is missing.' }, 500)
 
@@ -21,37 +20,47 @@ auth.post('/signup', async (c) => {
       return c.json({ error: 'Dados incompletos' }, 400)
     }
 
-    // 2. Check Database Connection
+    // Verificar usuário existente
     try {
         const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first()
         if (existingUser) {
           return c.json({ error: 'Email já cadastrado' }, 409)
         }
     } catch (dbError: any) {
+        console.error('❌ DB Check Error:', dbError)
         return c.json({ error: `DB ERROR: ${dbError.message}` }, 500)
     }
 
     const salt = crypto.randomUUID()
     const password_hash = await hashPassword(password, salt)
 
-    // 3. Insert User
+    // Inserir usuário
     const result = await c.env.DB.prepare(`
       INSERT INTO users (username, email, password_hash, salt, role)
       VALUES (?, ?, ?, ?, ?)
       RETURNING id, username, email, role, created_at
     `).bind(username, email, password_hash, salt, role || 'viewer').first()
 
-    if (!result) return c.json({ error: 'Falha ao criar usuário no banco' }, 500)
+    if (!result) {
+      console.error('❌ Insert user failed: no result')
+      return c.json({ error: 'Falha ao criar usuário no banco' }, 500)
+    }
 
-    // 4. Create Profile
+    console.log(`✅ Usuário criado: ${result.id} (${result.email})`)
+
+    // RC1-FIX: Criar profile com try/catch para não quebrar signup
     if (role === 'streamer') {
-      await c.env.DB.prepare(`
-        INSERT INTO profiles (user_id, bio_name, price_per_minute)
-        VALUES (?, ?, 10.00)
-      `).bind(result.id, username).run()
-    } else {
-        // Create wallet for viewer
-        // (Optional, wallet can be created on first recharge)
+      try {
+        await c.env.DB.prepare(`
+          INSERT INTO profiles (user_id, bio_name, price_per_minute, is_online)
+          VALUES (?, ?, 10.00, 0)
+        `).bind(result.id, username).run()
+        
+        console.log(`✅ Profile criado para streamer ${result.id}`)
+      } catch (profileError: any) {
+        console.error('⚠️ Profile creation failed (non-critical):', profileError)
+        // Não retorna erro - profile pode ser criado depois
+      }
     }
 
     const token = await createSessionToken({ 
@@ -60,8 +69,17 @@ auth.post('/signup', async (c) => {
       role: result.role 
     }, c.env.JWT_SECRET)
 
-    return c.json({ token, user: result })
+    return c.json({ 
+      token, 
+      user: {
+        id: result.id,
+        username: result.username,
+        email: result.email,
+        role: result.role
+      }
+    })
   } catch (e: any) {
+    console.error('❌ Signup Error:', e)
     return c.json({ error: `SERVER ERROR: ${e.message}` }, 500)
   }
 })
@@ -77,6 +95,11 @@ auth.post('/login', async (c) => {
 
     if (!user) {
       return c.json({ error: 'Credenciais inválidas' }, 401)
+    }
+
+    // RC1-FIX: Verificar se usuário está banido
+    if (user.role === 'banned') {
+      return c.json({ error: 'Usuário banido. Entre em contato com o suporte.' }, 403)
     }
 
     const isValid = await verifyPassword(password, user.salt, user.password_hash)
@@ -103,6 +126,7 @@ auth.post('/login', async (c) => {
       } 
     })
   } catch (e: any) {
+    console.error('❌ Login Error:', e)
     return c.json({ error: `LOGIN ERROR: ${e.message}` }, 500)
   }
 })
