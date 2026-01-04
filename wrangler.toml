@@ -12,4 +12,4 @@ database_id = "b6e327ad-e5d2-4d9c-bdff-2ce790d8933f"
 
 [[r2_buckets]]
 binding = "R2"
-bucket_name = "flayve-uploads"
+bucket_name = "flayve-assets"
