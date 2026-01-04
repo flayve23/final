@@ -286,4 +286,52 @@ calls.get('/check-balance/:streamer_id', async (c) => {
   });
 });
 
+// V104: Histórico de sessões do viewer
+calls.get('/history', async (c) => {
+  try {
+    const user = c.get('user');
+    const status = c.req.query('status'); // 'completed', 'rejected', ou undefined
+
+    let query = `
+      SELECT 
+        c.id,
+        c.duration_seconds,
+        c.cost_total,
+        c.status,
+        c.created_at,
+        u.username as streamer_name,
+        p.photo_url as streamer_photo
+      FROM calls c
+      JOIN users u ON c.streamer_id = u.id
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE c.viewer_id = ?
+    `;
+
+    const params: any[] = [user.sub];
+
+    if (status) {
+      query += ' AND c.status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY c.created_at DESC LIMIT 100';
+
+    const { results } = await c.env.DB.prepare(query).bind(...params).all();
+
+    // Calcular total gasto
+    const totalSpent = results.reduce((sum: number, call: any) => {
+      return sum + (call.cost_total || 0);
+    }, 0);
+
+    return c.json({
+      sessions: results,
+      total_spent: totalSpent
+    });
+
+  } catch (e: any) {
+    console.error('❌ Calls history error:', e);
+    return c.json({ error: `Failed to get history: ${e.message}` }, 500);
+  }
+});
+
 export default calls

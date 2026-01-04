@@ -13,6 +13,15 @@ import stories from '../server/routes/stories'
 import calls from '../server/routes/calls'
 import interactions from '../server/routes/interactions'
 import webhooks from '../server/routes/webhooks'
+import kyc from '../server/routes/kyc'
+import chargebacks from '../server/routes/chargebacks'
+import payments from '../server/routes/payments'
+import reports from '../server/routes/reports'
+import notifications from '../server/routes/notifications'
+import tickets from '../server/routes/tickets'
+import schedule from '../server/routes/schedule'
+import analytics from '../server/routes/analytics'
+import favorites from '../server/routes/favorites'
 
 type Bindings = {
   DB: D1Database
@@ -74,6 +83,15 @@ app.route('/stories', stories)
 app.route('/calls', calls)
 app.route('/interactions', interactions)
 app.route('/webhooks', webhooks)
+app.route('/kyc', kyc)
+app.route('/chargebacks', chargebacks)
+app.route('/payments', payments)
+app.route('/reports', reports)
+app.route('/notifications', notifications)
+app.route('/tickets', tickets)
+app.route('/schedule', schedule)
+app.route('/analytics', analytics)
+app.route('/favorites', favorites)
 
 // LiveKit Token Endpoint
 app.post('/livekit/token', async (c) => {

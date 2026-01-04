@@ -98,6 +98,24 @@ admin.post('/users/update-role', async (c) => {
     
     console.log(`✅ Role atualizada: ${user.username} agora é ${new_role}`)
     
+    // V104: Registrar no audit log
+    const adminUser = c.get('user')
+    try {
+      await c.env.DB.prepare(`
+        INSERT INTO audit_logs (admin_id, action, target_user_id, details)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        adminUser.sub,
+        new_role === 'banned' ? 'ban_user' : 'update_role',
+        user_id,
+        JSON.stringify({ old_role: user.role, new_role, reason: 'Admin action' })
+      ).run()
+      console.log(`📝 Audit log registrado: admin ${adminUser.sub} ${new_role === 'banned' ? 'baniu' : 'alterou role de'} user ${user_id}`)
+    } catch (logError) {
+      console.error('⚠️ Falha ao registrar audit log:', logError)
+      // Não falhar a requisição se o log der erro
+    }
+    
     return c.json({ 
       success: true,
       message: `Role de ${user.username} alterada para ${new_role}`,
@@ -133,11 +151,38 @@ admin.post('/kyc/review', async (c) => {
     const { kyc_id, action, notes } = await c.req.json()
     const newStatus = action === 'approve' ? 'approved' : 'rejected'
     
-    await c.env.DB.prepare('UPDATE kyc_verifications SET status = ?, admin_notes = ? WHERE id = ?')
+    // Buscar dados do KYC antes de atualizar
+    const kyc = await c.env.DB.prepare('SELECT user_id FROM kyc_verifications WHERE id = ?')
+      .bind(kyc_id)
+      .first()
+    
+    if (!kyc) {
+      return c.json({ error: 'KYC não encontrado' }, 404)
+    }
+    
+    await c.env.DB.prepare('UPDATE kyc_verifications SET status = ?, admin_notes = ?, reviewed_at = datetime("now") WHERE id = ?')
       .bind(newStatus, notes || '', kyc_id)
       .run()
     
-    return c.json({ success: true })
+    // V104: Registrar no audit log
+    const adminUser = c.get('user')
+    try {
+      await c.env.DB.prepare(`
+        INSERT INTO audit_logs (admin_id, action, target_user_id, details)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        adminUser.sub,
+        action === 'approve' ? 'approve_kyc' : 'reject_kyc',
+        kyc.user_id,
+        JSON.stringify({ kyc_id, notes: notes || 'Sem observações' })
+      ).run()
+    } catch (logError) {
+      console.error('⚠️ Falha ao registrar audit log:', logError)
+    }
+    
+    console.log(`✅ KYC ${kyc_id} ${newStatus} por admin ${adminUser.sub}`)
+    
+    return c.json({ success: true, status: newStatus })
   } catch (e: any) {
     console.error('❌ KYC review error:', e)
     return c.json({ error: `Failed to review KYC: ${e.message}` }, 500)
@@ -153,10 +198,59 @@ admin.post('/users/commission', async (c) => {
       .bind(rate, user_id)
       .run()
     
+    // V104: Registrar no audit log
+    const adminUser = c.get('user')
+    try {
+      await c.env.DB.prepare(`
+        INSERT INTO audit_logs (admin_id, action, target_user_id, details)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        adminUser.sub,
+        'update_commission',
+        user_id,
+        JSON.stringify({ new_rate: rate })
+      ).run()
+    } catch (logError) {
+      console.error('⚠️ Falha ao registrar audit log:', logError)
+    }
+    
     return c.json({ success: true })
   } catch (e: any) {
     console.error('❌ Commission update error:', e)
     return c.json({ error: `Failed to update commission: ${e.message}` }, 500)
+  }
+})
+
+// V104: Listar Audit Logs
+admin.get('/audit-logs', async (c) => {
+  try {
+    const { action } = c.req.query()
+    
+    let query = `
+      SELECT 
+        a.*,
+        admin_user.username as admin_username,
+        target_user.username as target_username
+      FROM audit_logs a
+      LEFT JOIN users admin_user ON a.admin_id = admin_user.id
+      LEFT JOIN users target_user ON a.target_user_id = target_user.id
+    `
+    
+    const params: any[] = []
+    
+    if (action) {
+      query += ' WHERE a.action = ?'
+      params.push(action)
+    }
+    
+    query += ' ORDER BY a.created_at DESC LIMIT 500'
+    
+    const { results } = await c.env.DB.prepare(query).bind(...params).all()
+    
+    return c.json(results)
+  } catch (e: any) {
+    console.error('❌ Audit logs error:', e)
+    return c.json({ error: `Failed to fetch audit logs: ${e.message}` }, 500)
   }
 })
 

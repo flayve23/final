@@ -95,6 +95,65 @@ webhooks.post('/mercadopago', async (c) => {
       }
     }
     
+    // V104 SPRINT 2: Detectar chargebacks
+    if (body.action === 'payment.refunded' || body.type === 'chargeback') {
+      const paymentId = body.data?.id || body.payment_id;
+      
+      if (!paymentId) {
+        console.warn('⚠️ Webhook de chargeback sem payment ID');
+        return c.json({ error: 'Payment ID missing' }, 400);
+      }
+      
+      console.log(`🚨 CHARGEBACK DETECTADO: Payment ${paymentId}`);
+      
+      // Buscar transação relacionada
+      const transaction = await c.env.DB.prepare(`
+        SELECT t.*, c.id as call_id, c.streamer_id, c.duration_seconds
+        FROM transactions t
+        LEFT JOIN calls c ON t.id = c.id
+        WHERE t.type = 'deposit'
+        AND json_extract(t.metadata, '$.mp_id') = ?
+        LIMIT 1
+      `).bind(String(paymentId)).first() as any;
+      
+      if (transaction) {
+        // Verificar se chargeback já existe
+        const existing = await c.env.DB.prepare(
+          'SELECT id FROM chargebacks WHERE payment_id = ?'
+        ).bind(String(paymentId)).first();
+        
+        if (!existing) {
+          // Criar registro de chargeback
+          await c.env.DB.prepare(`
+            INSERT INTO chargebacks (
+              payment_id, transaction_id, user_id, streamer_id, call_id,
+              amount, reason, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+          `).bind(
+            String(paymentId),
+            transaction.id,
+            transaction.user_id,
+            transaction.streamer_id,
+            transaction.call_id,
+            transaction.amount,
+            body.reason || 'Chargeback initiated by payment provider'
+          ).run();
+          
+          // Marcar chamada com chargeback
+          if (transaction.call_id) {
+            await c.env.DB.prepare(
+              'UPDATE calls SET has_chargeback = 1 WHERE id = ?'
+            ).bind(transaction.call_id).run();
+          }
+          
+          console.log(`📝 Chargeback registrado: R$ ${transaction.amount} - User ${transaction.user_id}`);
+          
+          // TODO: Enviar alerta urgente para admin via email/notificação
+          // await sendChargebackAlert(transaction);
+        }
+      }
+    }
+    
     // Sempre retornar 200 para o MP não reenviar
     return c.json({ received: true });
     

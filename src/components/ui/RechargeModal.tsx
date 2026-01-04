@@ -16,13 +16,19 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
     try {
       const { data } = await api.post('/wallet/recharge', { 
         amount: value,
-        method: 'pix' // Sempre PIX para obter QR Code
+        method: method // V104-FIX: Passar o método real (pix ou card)
       });
 
-      if (data.qr_code_base64) {
-          // Mercado Pago retornou QR Code
+      if (data.qr_code_base64 || data.payment_url) {
+          // Mercado Pago retornou dados de pagamento
           setPaymentData(data);
           setStep('payment');
+          
+          // Se for cartão E tiver URL, abrir automaticamente
+          if (method === 'card' && data.payment_url) {
+            window.open(data.payment_url, '_blank');
+            // Mas manter modal aberto com QR Code como fallback
+          }
       } else {
           // Simulador
           alert('Recarga simulada realizada com sucesso!');
@@ -68,15 +74,28 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
             <div className="p-6 space-y-6">
             <div className="grid grid-cols-2 gap-3">
                 {packages.map((pkg) => (
-                <button
-                    key={pkg}
-                    onClick={() => handleRecharge(pkg, 'pix')}
-                    disabled={loading}
-                    className="p-4 bg-dark-700 hover:bg-primary-600 hover:text-white rounded-xl border border-dark-600 transition-all text-center group"
-                >
-                    <div className="text-sm text-gray-400 group-hover:text-primary-200">Pacote</div>
-                    <div className="text-2xl font-bold text-white">R$ {pkg}</div>
-                </button>
+                <div key={pkg} className="space-y-2">
+                    <div className="p-4 bg-dark-700 rounded-xl border border-dark-600 text-center">
+                        <div className="text-sm text-gray-400">Pacote</div>
+                        <div className="text-2xl font-bold text-white">R$ {pkg}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                        <button
+                            onClick={() => handleRecharge(pkg, 'pix')}
+                            disabled={loading}
+                            className="p-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                            <QrCode className="w-3 h-3" /> PIX
+                        </button>
+                        <button
+                            onClick={() => handleRecharge(pkg, 'card')}
+                            disabled={loading}
+                            className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                            <CreditCard className="w-3 h-3" /> Cartão
+                        </button>
+                    </div>
+                </div>
                 ))}
             </div>
 
@@ -99,9 +118,20 @@ export default function RechargeModal({ isOpen, onClose, onSuccess }: any) {
                     disabled={!amount || loading}
                     className="bg-green-600 hover:bg-green-500 text-white px-6 rounded-xl font-bold disabled:opacity-50 flex items-center gap-2"
                 >
-                    {loading ? <Loader2 className="animate-spin" /> : 'Gerar PIX'}
+                    {loading ? <Loader2 className="animate-spin" /> : <><QrCode className="w-4 h-4" /> PIX</>}
                 </button>
             </div>
+            
+            {/* V104-FIX: Botão de Cartão separado */}
+            {amount && (
+                <button 
+                    onClick={() => handleRecharge(Number(amount), 'card')}
+                    disabled={!amount || loading}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {loading ? <Loader2 className="animate-spin" /> : <><CreditCard className="w-4 h-4" /> Pagar com Cartão</>}
+                </button>
+            )}
             </div>
         )}
 

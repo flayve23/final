@@ -75,4 +75,86 @@ profiles.get('/', async (c) => {
   return c.json(list.results)
 })
 
+// V104: Privacy Settings
+profiles.get('/privacy-settings', async (c) => {
+  const user = c.get('user') as any
+  
+  const settings = await c.env.DB.prepare(`
+    SELECT anonymous_mode FROM users WHERE id = ?
+  `).bind(user.sub).first()
+  
+  return c.json(settings || { anonymous_mode: false })
+})
+
+profiles.post('/update-privacy', async (c) => {
+  const user = c.get('user') as any
+  const { anonymous_mode } = await c.req.json()
+  
+  await c.env.DB.prepare(`
+    UPDATE users SET anonymous_mode = ? WHERE id = ?
+  `).bind(anonymous_mode ? 1 : 0, user.sub).run()
+  
+  return c.json({ success: true })
+})
+
+// V104: Blocked Streamers
+profiles.get('/blocked-streamers', async (c) => {
+  const user = c.get('user') as any
+  
+  const { results } = await c.env.DB.prepare(`
+    SELECT 
+      bs.id,
+      bs.streamer_id,
+      bs.created_at,
+      u.username as streamer_name,
+      p.photo_url as streamer_photo
+    FROM blocked_streamers bs
+    JOIN users u ON bs.streamer_id = u.id
+    LEFT JOIN profiles p ON u.id = p.user_id
+    WHERE bs.viewer_id = ?
+    ORDER BY bs.created_at DESC
+  `).bind(user.sub).all()
+  
+  return c.json(results)
+})
+
+profiles.post('/block-streamer', async (c) => {
+  const user = c.get('user') as any
+  const { streamer_id } = await c.req.json()
+  
+  if (!streamer_id) {
+    return c.json({ error: 'streamer_id is required' }, 400)
+  }
+  
+  try {
+    await c.env.DB.prepare(`
+      INSERT INTO blocked_streamers (viewer_id, streamer_id)
+      VALUES (?, ?)
+    `).bind(user.sub, streamer_id).run()
+    
+    return c.json({ success: true })
+  } catch (e: any) {
+    if (e.message.includes('UNIQUE')) {
+      return c.json({ error: 'Já bloqueado' }, 400)
+    }
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+profiles.post('/unblock-streamer', async (c) => {
+  const user = c.get('user') as any
+  const { streamer_id } = await c.req.json()
+  
+  if (!streamer_id) {
+    return c.json({ error: 'streamer_id is required' }, 400)
+  }
+  
+  await c.env.DB.prepare(`
+    DELETE FROM blocked_streamers 
+    WHERE viewer_id = ? AND streamer_id = ?
+  `).bind(user.sub, streamer_id).run()
+  
+  return c.json({ success: true })
+})
+
 export default profiles

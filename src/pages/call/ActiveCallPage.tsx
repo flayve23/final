@@ -12,6 +12,7 @@ import {
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import api from '../../services/api';
+import SessionTimer from '../../components/call/SessionTimer';
 
 export default function ActiveCallPage() {
   const { state } = useLocation();
@@ -19,6 +20,7 @@ export default function ActiveCallPage() {
   const [token] = useState(state?.token);
   const [url] = useState(state?.url);
   const [callId] = useState(state?.call_id);
+  const [pricePerMinute] = useState(state?.price_per_minute || 10); // V104: Preço por minuto
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const hasEndedRef = useRef(false);
@@ -120,6 +122,19 @@ export default function ActiveCallPage() {
             <ManualVideoGrid />
             <RoomAudioRenderer />
             
+            {/* V104: Session Timer com controle de gastos em tempo real */}
+            <div className="fixed top-4 right-4 z-50 w-80">
+              <SessionTimer
+                startTime={startTime}
+                pricePerMinute={pricePerMinute}
+                spendingLimit={100} // Limite de R$ 100 (pode vir do backend)
+                onLimitReached={() => {
+                  alert('Limite de gasto atingido! A chamada será encerrada.');
+                  navigate('/dashboard');
+                }}
+              />
+            </div>
+
             {/* Timer de duração */}
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 px-4 py-2 rounded-full flex items-center gap-2">
                 <Clock className="w-4 h-4 text-red-500 animate-pulse" />
