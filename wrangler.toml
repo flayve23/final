@@ -8,7 +8,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "flayve-db-prod"
-database_id = "b6e327ad-e5d2-4d9c-bdff-2ce790d8933f"
+database_id = "cfb2a716-30c9-4b74-a04b-7f6386f1f795"
 
 [[r2_buckets]]
 binding = "R2"
