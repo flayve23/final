@@ -4,6 +4,8 @@ pages_build_output_dir = "dist"
 
 [vars]
 ENVIRONMENT = "production"
+FRONTEND_URL = "https://final-6fd.pages.dev"
+API_URL = "https://final-6fd.pages.dev"
 
 [[d1_databases]]
 binding = "DB"
