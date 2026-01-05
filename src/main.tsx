@@ -1,8 +1,13 @@
-import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './index.css';
 
-// V101: Removed React.StrictMode to prevent double-mount effects with WebRTC/LiveKit
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App />
-)
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);

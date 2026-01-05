@@ -1,10 +1,9 @@
 {
   "name": "flayve-functions",
-  "version": "1.0.0",
-  "description": "Cloudflare Pages Functions for FLAYVE V104",
+  "version": "1.0.5",
   "type": "module",
+  "private": true,
   "dependencies": {
-    "hono": "^4.0.0",
-    "livekit-server-sdk": "^2.0.0"
+    "hono": "^4.0.0"
   }
 }

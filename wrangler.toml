@@ -10,7 +10,7 @@ API_URL = "https://flayve.com"
 [[d1_databases]]
 binding = "DB"
 database_name = "flayve-db-prod"
-database_id = "59d3443f-558e-4f3b-b27d-1e76e6ac7dc7"
+database_id = "7d53c054-b4b3-4739-8702-41eaa3da56bc"
 
 [[r2_buckets]]
 binding = "R2"
