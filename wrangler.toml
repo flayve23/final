@@ -4,13 +4,13 @@ pages_build_output_dir = "dist"
 
 [vars]
 ENVIRONMENT = "production"
-FRONTEND_URL = "https://final-6fd.pages.dev"
-API_URL = "https://final-6fd.pages.dev"
+FRONTEND_URL = "https://flayve.com"
+API_URL = "https://flayve.com"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "flayve-db-prod"
-database_id = "c4b69158-bfed-4e21-ba98-7ceffe1e764b"
+database_id = "59d3443f-558e-4f3b-b27d-1e76e6ac7dc7"
 
 [[r2_buckets]]
 binding = "R2"
